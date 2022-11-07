@@ -1,9 +1,10 @@
 const { request, gql } = require("graphql-request");
 const { toUSDTBalances } = require('../helper/balances');
-const sdk = require('@defillama/sdk')
+const { getBlock } = require('../helper/getBlock');
+const { blockQuery } = require('./graph')
 
-function getChainTvl(graphUrls, factoriesName = "uniswapFactories", tvlName = "totalLiquidityUSD") {
-    const graphQuery = gql`
+function getChainTvl(graphUrls, factoriesName = "uniswapFactories", tvlName = "totalLiquidityUSD", blockCatchupLimit) {
+  const graphQuery = gql`
 query get_tvl($block: Int) {
   ${factoriesName}(
     block: { number: $block }
@@ -12,30 +13,23 @@ query get_tvl($block: Int) {
   }
 }
 `;
-    return (chain) => {
-        return async (timestamp, ethBlock, chainBlocks) => {
-            let block;
-            if (chain === "ethereum") {
-                block = ethBlock;
-            }
-            block = chainBlocks[chain]
-            if (block === undefined) {
-                block = (await sdk.api.util.lookupBlock(timestamp, { chain })).block
-            }
-            const uniswapFactories = (await request(
-                graphUrls[chain],
-                graphQuery,
-                {
-                    block,
-                }
-            ))[factoriesName];
-            const usdTvl = Number(uniswapFactories[0][tvlName])
+  return (chain) => {
+    return async (timestamp, ethBlock, chainBlocks) => {
+      const block = await getBlock(timestamp, chain, chainBlocks)
+      let uniswapFactories
 
-            return toUSDTBalances(usdTvl)
-        }
+      if (!blockCatchupLimit) {
+        uniswapFactories = (await request(graphUrls[chain], graphQuery, { block, }))[factoriesName];
+      } else {
+        uniswapFactories = (await blockQuery(graphUrls[chain], graphQuery, block, blockCatchupLimit))[factoriesName];
+      }
+
+      const usdTvl = Number(uniswapFactories[0][tvlName])
+      return toUSDTBalances(usdTvl)
     }
+  }
 }
 
 module.exports = {
-    getChainTvl
+  getChainTvl,
 }

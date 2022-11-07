@@ -1,17 +1,16 @@
-const {calculateUniTvl} = require('../helper/calculateUniTvl.js')
-const {transformFantomAddress} = require('../helper/portedTokens.js')
+const { getUniTVL } = require('../helper/unknownTokens')
+const { staking } = require('../helper/staking.js');
 
 const factory = '0x733A9D1585f2d14c77b49d39BC7d7dd14CdA4aa5'
-async function tvl(_timestamp, _ethBlock, chainBlocks){
-  const transform = await transformFantomAddress();
-
-  const balances = await calculateUniTvl(transform, chainBlocks['fantom'], 'fantom', factory, 6725911, true);
-  return balances
-}
+const masterchef = '0xCb80F529724B9620145230A0C866AC2FACBE4e3D'
+const brush = '0x85dec8c4b2680793661bca91a8f129607571863d'
 
 module.exports = {
+  misrepresentedTokens: true,
+  timetravel: true,
+  doublecounted: false,
   fantom:{
-    tvl,
-  },
-  tvl
+    tvl: getUniTVL({ factory, chain: 'fantom', useDefaultCoreAssets: true }),
+    staking: staking(masterchef, brush, "fantom"),
+  }
 }
